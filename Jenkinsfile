@@ -6,12 +6,14 @@ pipeline {
     }
 
     stages {
-        stage('Cloner le projet') {
-            steps {
-                // Cloner le projet depuis GitHub
-                git branch: 'main', url: 'https://github.com/AyoubeJarhni1/DeploiementAWS.git'
-            }
+       stage('Cloner le projet') {
+    steps {
+        withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]) {
+            sh 'git clone https://$GIT_USERNAME:$GIT_PASSWORD@github.com/AyoubeJarhni1/DeploiementAWS.git'
         }
+    }
+}
+
         
         stage('Test Docker') {
             steps {
