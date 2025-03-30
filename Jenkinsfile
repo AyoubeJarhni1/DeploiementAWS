@@ -29,7 +29,7 @@ pipeline {
                 script {
                     // Exécuter l'image Docker localement et tester l'accessibilité via curl
                     docker.image(DOCKER_IMAGE).inside {
-                        sh 'curl -f http://localhost:80 || exit 1'
+                        bat 'curl -f http://localhost:80 || exit 1'
                     }
                 }
             }
@@ -51,7 +51,7 @@ pipeline {
                 echo 'Déploiement de l\'image Docker dans un environnement de revue...'
                 script {
                     // Simuler un déploiement sur une machine locale ou virtuelle (pas AWS ici)
-                    sh 'docker run -d -p 8080:80 $DOCKER_IMAGE'
+                    bat 'docker run -d -p 8080:80 $DOCKER_IMAGE'
                     echo 'Déploiement effectué sur le port 8080.'
                 }
             }
@@ -62,7 +62,7 @@ pipeline {
                 echo 'Déploiement dans l\'environnement de staging...'
                 script {
                     // Répéter le déploiement sur un autre environnement simulé
-                    sh 'docker run -d -p 8081:80 $DOCKER_IMAGE'
+                    bat 'docker run -d -p 8081:80 $DOCKER_IMAGE'
                     echo 'Déploiement effectué sur le port 8081.'
                 }
             }
@@ -73,7 +73,7 @@ pipeline {
                 echo 'Déploiement en production...'
                 script {
                     // Déploiement final en production simulée sur le port 8082
-                    sh 'docker run -d -p 8082:80 $DOCKER_IMAGE'
+                    bat 'docker run -d -p 8082:80 $DOCKER_IMAGE'
                     echo 'Déploiement effectué sur le port 8082.'
                 }
             }
@@ -84,7 +84,7 @@ pipeline {
         always {
             echo 'Nettoyage des ressources...'
             // Nettoyage des containers Docker
-            sh 'docker system prune -f'
+            bat 'docker system prune -f'
         }
         success {
             echo 'Pipeline exécuté avec succès.'
