@@ -14,7 +14,10 @@ pipeline {
                     echo "Clonage du projet..."
                     checkout scm
                     echo "Construction de l'image Docker..."
-                    sh 'docker build -t $DOCKER_IMAGE_NAME .'
+                    // Ensure the Docker build runs inside a node block
+                    node {
+                        sh 'docker build -t $DOCKER_IMAGE_NAME .'
+                    }
                 }
             }
         }
@@ -24,11 +27,13 @@ pipeline {
                 script {
                     // Vérifier l'accès de l'image Docker
                     echo "Test de l'image Docker..."
-                    sh 'docker run -d -p 8080:80 $DOCKER_IMAGE_NAME'
-                    sleep(10)  // Attente pour le démarrage du conteneur
-                    // Tester l'accessibilité de l'application avec curl
-                    sh 'curl -f http://localhost:8080 || exit 1'
-                    echo "L'image Docker est accessible."
+                    node {
+                        sh 'docker run -d -p 8080:80 $DOCKER_IMAGE_NAME'
+                        sleep(10)  // Attente pour le démarrage du conteneur
+                        // Tester l'accessibilité de l'application avec curl
+                        sh 'curl -f http://localhost:8080 || exit 1'
+                        echo "L'image Docker est accessible."
+                    }
                 }
             }
         }
@@ -38,9 +43,11 @@ pipeline {
                 script {
                     // Pousser l'image Docker sur Docker Hub
                     echo "Poussée de l'image Docker sur Docker Hub..."
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
-                        sh 'docker push $DOCKER_IMAGE_NAME'
+                    node {
+                        withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
+                            sh 'docker push $DOCKER_IMAGE_NAME'
+                        }
                     }
                 }
             }
@@ -51,7 +58,9 @@ pipeline {
         always {
             // Nettoyage des ressources après l'exécution
             echo "Nettoyage des conteneurs et images Docker..."
-            sh 'docker system prune -af'
+            node {
+                sh 'docker system prune -af'
+            }
         }
         success {
             echo "Pipeline CI/CD réussi."
