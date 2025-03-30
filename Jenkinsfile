@@ -1,86 +1,96 @@
 pipeline {
     agent any
     environment {
-        DOCKER_IMAGE = 'ayoubjarhni/mon-site-web'
-        DOCKER_TAG = 'latest'
+        DOCKER_IMAGE = "ayoubjarhni/mon-site-web"
+        DOCKER_REGISTRY = "docker.io" // Docker Hub par exemple
+        DOCKERHUB_USERNAME = credentials('docker-hub-credentials')  // Utilisation de l'ID des credentials pour le nom d'utilisateur
+        DOCKERHUB_PASSWORD = credentials('docker-hub-credentials')  // Utilisation de l'ID des credentials pour le mot de passe
     }
-
     stages {
-        stage('Cloner le projet') {
+        stage('Checkout') {
             steps {
-                script {
-                    echo 'Clonage du projet depuis GitHub...'
-                }
-                withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]) {
-                    sh 'git clone https://$GIT_USERNAME:$GIT_PASSWORD@github.com/AyoubeJarhni1/DeploiementAWS.git'
-                }
+                echo 'Clonage du projet depuis GitHub...'
+                git url: 'https://github.com/AyoubeJarhni1/DeploiementAWS.git', branch: 'main'
             }
         }
-
-        stage('Test Docker') {
-            steps {
-                script {
-                    echo 'Vérification de la version de Docker...'
-                }
-                sh 'docker --version'
-            }
-        }
-
+        
         stage('Build Docker Image') {
             steps {
+                echo 'Construction de l\'image Docker...'
                 script {
-                    echo 'Construction de l\'image Docker...'
+                    docker.build(DOCKER_IMAGE, '.')
                 }
-                sh 'docker build -t $DOCKER_IMAGE:$DOCKER_TAG .'
             }
         }
-
+        
         stage('Test Docker Image') {
             steps {
+                echo 'Vérification du bon fonctionnement de l\'image Docker...'
                 script {
-                    echo 'Suppression du conteneur précédent s\'il existe...'
-                    sh 'docker rm -f test-container || true'
-                    echo 'Démarrage du conteneur en mode détaché...'
-                    sh 'docker run -d -p 8081:80 --name test-container $DOCKER_IMAGE:$DOCKER_TAG'
-                    echo 'Attente de quelques secondes pour s\'assurer que le conteneur est lancé...'
-                    sh 'sleep 5'
-                    echo 'Vérification de la disponibilité du conteneur avec curl...'
-                    sh 'curl --fail http://localhost:8081 || exit 1'
+                    // Exécuter l'image Docker localement et tester l'accessibilité via curl
+                    docker.image(DOCKER_IMAGE).inside {
+                        sh 'curl -f http://localhost:80 || exit 1'
+                    }
                 }
             }
         }
 
         stage('Push to Docker Hub') {
             steps {
+                echo 'Poussée de l\'image Docker sur Docker Hub...'
                 script {
-                    echo 'Connexion à Docker Hub...'
-                }
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
-                                                   usernameVariable: 'DOCKER_USERNAME', 
-                                                   passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
-                    echo 'Push de l\'image Docker sur Docker Hub...'
-                    sh 'docker push $DOCKER_IMAGE:$DOCKER_TAG'
+                    docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKERHUB_USERNAME}:${DOCKERHUB_PASSWORD}") {
+                        docker.image(DOCKER_IMAGE).push()
+                    }
                 }
             }
         }
 
-        stage('Cleanup') {
+        stage('Deploy in Review') {
             steps {
+                echo 'Déploiement de l\'image Docker dans un environnement de revue...'
                 script {
-                    echo 'Nettoyage des conteneurs Docker après le test...'
+                    // Simuler un déploiement sur une machine locale ou virtuelle (pas AWS ici)
+                    sh 'docker run -d -p 8080:80 $DOCKER_IMAGE'
+                    echo 'Déploiement effectué sur le port 8080.'
                 }
-                sh 'docker stop test-container && docker rm test-container || true'
+            }
+        }
+        
+        stage('Deploy in Staging') {
+            steps {
+                echo 'Déploiement dans l\'environnement de staging...'
+                script {
+                    // Répéter le déploiement sur un autre environnement simulé
+                    sh 'docker run -d -p 8081:80 $DOCKER_IMAGE'
+                    echo 'Déploiement effectué sur le port 8081.'
+                }
+            }
+        }
+
+        stage('Deploy in Production') {
+            steps {
+                echo 'Déploiement en production...'
+                script {
+                    // Déploiement final en production simulée sur le port 8082
+                    sh 'docker run -d -p 8082:80 $DOCKER_IMAGE'
+                    echo 'Déploiement effectué sur le port 8082.'
+                }
             }
         }
     }
-
+    
     post {
+        always {
+            echo 'Nettoyage des ressources...'
+            // Nettoyage des containers Docker
+            sh 'docker system prune -f'
+        }
         success {
-            echo 'Pipeline terminé avec succès!'
+            echo 'Pipeline exécuté avec succès.'
         }
         failure {
-            echo 'Le pipeline a échoué!'
+            echo 'Le pipeline a échoué.'
         }
     }
 }
